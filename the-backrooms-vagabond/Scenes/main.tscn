@@ -1,0 +1,30 @@
+[gd_scene load_steps=6 format=3 uid="uid://dpcc8812q2qh4"]
+
+[ext_resource type="Script" path="res://Scripts/generate_world.gd" id="1_hix2k"]
+[ext_resource type="PackedScene" uid="uid://lwcy48f36ofc" path="res://Scenes/player.tscn" id="1_wh2vi"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_s2c5c"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+
+[sub_resource type="Sky" id="Sky_t6tl2"]
+sky_material = SubResource("ProceduralSkyMaterial_s2c5c")
+
+[sub_resource type="Environment" id="Environment_b63cb"]
+background_mode = 2
+sky = SubResource("Sky_t6tl2")
+tonemap_mode = 2
+
+[node name="Main" type="Node3D"]
+
+[node name="CharacterBody3D" parent="." instance=ExtResource("1_wh2vi")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0977542, 1.59718, 0)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_b63cb")
+
+[node name="World" type="Node" parent="."]
+script = ExtResource("1_hix2k")
+
+[node name="Lights" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -0.162241, 0.986751, 0, -0.986751, -0.162241, 0, 4.42285, 0)
