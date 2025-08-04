@@ -1,16 +1,23 @@
-[gd_scene load_steps=4 format=3 uid="uid://b3fvn1hlh6l2u"]
+[gd_scene load_steps=5 format=3 uid="uid://b3fvn1hlh6l2u"]
+
+[ext_resource type="Texture2D" uid="uid://b6pe6ggmn5n7q" path="res://test_texture.png" id="1_8y500"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_lfudh"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pbhg5"]
-albedo_color = Color(0.932595, 0.845406, 0.746856, 1)
+albedo_texture = ExtResource("1_8y500")
+uv1_scale = Vector3(3, 2, 2)
+uv1_offset = Vector3(-1, -1, 0)
+texture_filter = 0
+texture_repeat = false
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_vpxv8"]
 
 [node name="Floor" type="Node3D"]
+transform = Transform3D(0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1, 0, 0, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.25, 0, 0, 0, 1, 0, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 0.235, 0, 0, 0, 1, 0, 0, 0)
 mesh = SubResource("BoxMesh_lfudh")
 skeleton = NodePath("StaticBody3D")
 surface_material_override/0 = SubResource("StandardMaterial3D_pbhg5")
