@@ -1,0 +1,64 @@
+[gd_scene load_steps=11 format=3 uid="uid://dpcc8812q2qh4"]
+
+[ext_resource type="Script" path="res://Scripts/generate_world.gd" id="1_hix2k"]
+[ext_resource type="PackedScene" uid="uid://lwcy48f36ofc" path="res://Scenes/player.tscn" id="1_wh2vi"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_s2c5c"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+
+[sub_resource type="Sky" id="Sky_t6tl2"]
+sky_material = SubResource("ProceduralSkyMaterial_s2c5c")
+
+[sub_resource type="Environment" id="Environment_b63cb"]
+background_mode = 2
+sky = SubResource("Sky_t6tl2")
+tonemap_mode = 2
+
+[sub_resource type="PrismMesh" id="PrismMesh_a4o7j"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_psi0r"]
+albedo_color = Color(0, 0, 1, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_483xx"]
+albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7py4c"]
+albedo_color = Color(1, 1, 0, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jhom3"]
+albedo_color = Color(0, 1, 0, 1)
+
+[node name="Main" type="Node3D"]
+
+[node name="CharacterBody3D" parent="." instance=ExtResource("1_wh2vi")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.098, 0, 0)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_b63cb")
+
+[node name="World" type="Node" parent="."]
+script = ExtResource("1_hix2k")
+
+[node name="Lights" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -0.162241, 0.986751, 0, -0.986751, -0.162241, 0, 4.42285, 0)
+
+[node name="South" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-07, 1, 0, -10, -4.37114e-08, 0, 0, -5)
+mesh = SubResource("PrismMesh_a4o7j")
+surface_material_override/0 = SubResource("StandardMaterial3D_psi0r")
+
+[node name="North" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.999956, 0.094071, 4.11197e-10, 6.11754e-17, -4.37114e-07, 1, 0.0094071, 9.99956, 4.37095e-08, 0, 0, 5.08322)
+mesh = SubResource("PrismMesh_a4o7j")
+surface_material_override/0 = SubResource("StandardMaterial3D_483xx")
+
+[node name="West" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.00940705, -9.99956, -4.37094e-08, 1.2235e-16, -4.37114e-07, 1, -0.999956, 0.0940705, 4.11196e-10, -5, 0, 0.0564902)
+mesh = SubResource("PrismMesh_a4o7j")
+surface_material_override/0 = SubResource("StandardMaterial3D_7py4c")
+
+[node name="East" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.00940697, 9.99956, 4.37094e-08, 1.28017e-16, -4.37114e-07, 1, 0.999956, -0.0940697, -4.11192e-10, 5.13023, 0, 0.0564902)
+mesh = SubResource("PrismMesh_a4o7j")
+surface_material_override/0 = SubResource("StandardMaterial3D_jhom3")

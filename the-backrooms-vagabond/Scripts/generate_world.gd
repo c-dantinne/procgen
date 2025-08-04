@@ -5,18 +5,18 @@ extends Node
 
 const floor_scene = preload("res://Scenes/floor.tscn")
 
-@export var perimeter_width : int = 300
-@export var perimeter_length : int = 300
+@export var perimeter_width : int = 4000
+@export var perimeter_length : int = 4000
 @export var perimeter_buffer : int = 100
 
-@export var min_room_size : int = 10
-@export var max_room_size : int = 20
+@export var min_room_size : int = 100
+@export var max_room_size : int = 500
 #@export var min_hallway_width = 500
 #@export var max_hallway_width = 500
 #@export var min_hallway_length = 500
 #@export var max_hallway_length = 500
 @export var min_doorway_size : int = 3
-@export var min_surface_area : int = 1500
+@export var min_surface_area : int = 90000
 
 const NORTH := Vector3i(0, 0, 1)
 const EAST := Vector3i(1, 0, 0)
@@ -39,11 +39,11 @@ var brushes_with_adjacent_space : Array[Node3D] = []
 
 func _ready() -> void:
 	assert(min_doorway_size <= float(min_room_size) / 2.0)
-	
+	Engine.print_error_messages = false
 	if !world_seed:
 		world_seed = randi()
 	seed(world_seed) #todo show seed on ui
-	#make_world()
+	#test_add_next_room_setup()
 	
 	#var instance = floor_scene.instantiate()
 	#add_child(instance)
@@ -59,7 +59,9 @@ func _ready() -> void:
 	
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
-		test_gen_next_room()
+		pass
+		#test_manually_gen_next_room()
+		#test_add_next_room()
 
 
 #REQUIREMENTS:
@@ -294,15 +296,34 @@ func test_is_adjacent_space_available():
 	b.queue_free()
 	
 #a test function to click and add rooms of defined size, position, and/or direction
-func test_add_next_room():
-	#first, pre-defined direction
+var test_dirs = [NORTH, NORTH, EAST, SOUTH, SOUTH, WEST]
+var test_dirs_index = 0
+var test_brush_list_index = 0
+func test_add_next_room_setup():
 	var a = floor_scene.instantiate()
 	add_child(a)
 	a.scale = Vector3i(min_room_size, 1, min_room_size)
 	set_brush_position(a, Vector3(100, 0, 100))
 	floor_brushes.append(a)
 	
-func test_gen_next_room():
+func test_add_next_room():
+	#first, pre-defined direction
+	if test_dirs_index < len(test_dirs):
+		if is_adjacent_space_available(floor_brushes[test_brush_list_index], test_dirs[test_dirs_index]):
+			print("test_add_next_room: adjacent space available")
+		else:
+			print("test_add_next_room: adjacent space not available")
+			
+		#adjacent space seems to be working great
+			
+		var new_brush = create_floor_brush(floor_brushes[test_brush_list_index], test_dirs[test_dirs_index])
+		test_brush_list_index += 1
+		brushes_with_adjacent_space.append(new_brush)
+		floor_brushes.append(new_brush)
+		test_dirs_index += 1
+
+	
+func test_manually_gen_next_room():
 		# 4. Pick a random side of selected room that does not touch the perimeter.
 	# 	 Backtrack brush floors until we can find adjacent space
 	var adjacent_space_found = false
@@ -310,13 +331,13 @@ func test_gen_next_room():
 		directions_available.shuffle()
 		for dir in directions_available:
 			if is_adjacent_space_available(brushes_with_adjacent_space[current_brush_index], dir):
-				#print("Adjacent space found to the %v" % dir)
-				adjacent_space_found = true
 				var new_brush = create_floor_brush(brushes_with_adjacent_space[current_brush_index], dir)
-				brushes_with_adjacent_space.append(new_brush)
-				floor_brushes.append(new_brush)
-				current_surface_area += new_brush.scale.x * new_brush.scale.y
-				break
+				if new_brush:
+					adjacent_space_found = true
+					brushes_with_adjacent_space.append(new_brush)
+					floor_brushes.append(new_brush)
+					current_surface_area += new_brush.scale.x * new_brush.scale.y
+					break
 		if not adjacent_space_found:
 			current_brush_index -= 1
 		else:
@@ -343,7 +364,7 @@ func make_world() -> void:
 	set_brush_position(instance, starting_point)
 	brushes_with_adjacent_space.append(instance)
 	floor_brushes.append(instance)
-	return
+
 	while current_surface_area < min_surface_area:
 		# 4. Pick a random side of selected room that does not touch the perimeter.
 		# 	 Backtrack brush floors until we can find adjacent space
@@ -352,17 +373,20 @@ func make_world() -> void:
 			directions_available.shuffle()
 			for dir in directions_available:
 				if is_adjacent_space_available(brushes_with_adjacent_space[current_brush_index], dir):
-					adjacent_space_found = true
 					var new_brush = create_floor_brush(brushes_with_adjacent_space[current_brush_index], dir)
-					brushes_with_adjacent_space.append(new_brush)
-					floor_brushes.append(new_brush)
-					current_surface_area += new_brush.scale.x * new_brush.scale.y
+					if new_brush:
+						adjacent_space_found = true
+						brushes_with_adjacent_space.append(new_brush)
+						floor_brushes.append(new_brush)
+						current_surface_area += new_brush.scale.x * new_brush.scale.y
+						break
 			if not adjacent_space_found:
 				current_brush_index -= 1
 			else:
 				current_brush_index = len(brushes_with_adjacent_space) - 1
+				#print("current index: " + str(current_brush_index))
 			if current_brush_index < 0:
-				printerr("ERROR: No adjacent space available before minimum surface area reached. Seed: " + str(seed))
+				#printerr("ERROR: No adjacent space available before minimum surface area reached. Seed: " + str(seed))
 				return
 		# 5. Generate another rectangular floor. 70% probability of being a hallway, 30% being a room.
 		# 6. Shrink new room if overlapping perimeter or another floor.
@@ -423,22 +447,29 @@ func get_overlapping_brush(brush_size: Vector3i, brush_pos: Vector3i, ref_direct
 		if other_pos.x >= brush_pos.x + brush_size.x || other_pos.x + other.scale.x <= brush_pos.x || other_pos.z >= brush_pos.z + brush_size.z || other_pos.z + other.scale.z <= brush_pos.z:
 			continue
 		else:
-			if other.position.x < brush_center_pos.x:
+			if other.position.x < brush_center_pos.x && ignored_direction != WEST:
 				ref_direction_to_brush.append(WEST)
-			elif other.position.x > brush_center_pos.x:
+				#print("overlap detected - shrinking on the WEST side")
+			elif other.position.x > brush_center_pos.x && ignored_direction != EAST:
 				ref_direction_to_brush.append(EAST)
-			elif other.position.z < brush_center_pos.z:
+				#print("overlap detected - shrinking on the EAST side")
+			elif other.position.z < brush_center_pos.z && ignored_direction != SOUTH:
 				ref_direction_to_brush.append(SOUTH)
-			elif other.position.z > brush_center_pos.z:
+				#print("overlap detected - shrinking on the SOUTH side")
+			elif other.position.z > brush_center_pos.z && ignored_direction != NORTH:
 				ref_direction_to_brush.append(NORTH)
-			else: #default to north. should only occur during full overlap
+				#print("overlap detected - shrinking on the NORTH side")
+			else: #default to NORTH. should only occur during full overlap. pray it wont crash
 				ref_direction_to_brush.append(NORTH)
-				printerr("WARNING: FULL OVERLAP DETECTED")
-			if ref_direction_to_brush[0] == ignored_direction:
-				return null
-			return other
+				#printerr("WARNING: FULL OVERLAP DETECTED")
+			#if ref_direction_to_brush[0] == ignored_direction: #continue to next brush
+				#print("overlap detected - but its on the ignored direction")
+				#continue
+			if ref_direction_to_brush.size() > 0:
+				return other
 	return null
 
+#returns null if brush failed to generate
 func create_floor_brush(prev_brush: Node3D, direction: Vector3i) -> Node3D:
 	var instance = floor_scene.instantiate()
 	add_child(instance)
@@ -463,13 +494,32 @@ func create_floor_brush(prev_brush: Node3D, direction: Vector3i) -> Node3D:
 
 	set_brush_scale(instance, new_brush_size)
 	set_brush_position(instance, new_brush_pos)
+	
+	var t = get_brush_position(instance)
+	#print("pos before: %s %s %s" % [t.x, t.y, t.z])
+	#print("size before: %s %s %s" % [instance.scale.x, instance.scale.y, instance.scale.z])
+	
 	instance = prevent_overlap(instance, direction)
+	new_brush_pos = get_brush_position(instance)
+	new_brush_size = instance.scale
+	
+	#failed to generate
+	if instance.scale.x < 1.0 || instance.scale.z < 1.0:
+		instance.queue_free()
+		return null
+	
+	t = get_brush_position(instance)
+	#print("pos after: %s %s %s" % [t.x, t.y, t.z])
+	#print("size after: %s %s %s" % [instance.scale.x, instance.scale.y, instance.scale.z])
 	
 	#prevent brush from being oob
-	if new_brush_pos.x + new_brush_size.x > perimeter_width:
-		new_brush_size.x = perimeter_width - new_brush_pos.x
-	if new_brush_pos.z + new_brush_size.z > perimeter_width:
-		new_brush_size.z = perimeter_length - new_brush_pos.z
+	#if new_brush_pos.x + new_brush_size.x > perimeter_width:
+		#new_brush_size.x = perimeter_width - new_brush_pos.x
+	#if new_brush_pos.z + new_brush_size.z > perimeter_width:
+		#new_brush_size.z = perimeter_length - new_brush_pos.z
+	if new_brush_pos.x + new_brush_size.x > perimeter_width || new_brush_pos.z + new_brush_size.z > perimeter_width || new_brush_pos.x < 0 || new_brush_pos.z < 0:
+		instance.queue_free()
+		return null
 	
 	set_brush_scale(instance, new_brush_size)
 	set_brush_position(instance, new_brush_pos)
@@ -485,25 +535,19 @@ func prevent_overlap(new_brush : Node3D, source_direction: Vector3i) -> Node3D:
 	var existing_brush = get_overlapping_brush(new_brush_size, new_brush_pos, directions_to_check, source_direction)
 	while existing_brush:
 		for dir in directions_to_check:
-			print(dir)
-			if dir == source_direction: #skip checking where we came from
-				print("skipping")
-				continue 
 			match dir: 
 				NORTH:
-					print("changing north")
 					new_brush_size.z = get_brush_position(existing_brush).z - new_brush_pos.z
 				EAST:
-					print("changing east")
 					new_brush_size.x = get_brush_position(existing_brush).x - new_brush_pos.x
 				SOUTH:
-					print("changing south")
 					new_brush_size.z = (new_brush_pos.z + new_brush_size.z) - (get_brush_position(existing_brush).z + existing_brush.scale.z)
 					new_brush_pos.z = get_brush_position(existing_brush).z + existing_brush.scale.z
 				WEST:
-					print("changing west")
 					new_brush_size.x = (new_brush_pos.x + new_brush_size.x) - (get_brush_position(existing_brush).x + existing_brush.scale.x)
 					new_brush_pos.x = get_brush_position(existing_brush).x + existing_brush.scale.x
+				_: #needed for when get_overlapping_brush detects the ignored direction
+					pass
 		existing_brush = get_overlapping_brush(new_brush_size, new_brush_pos, directions_to_check, source_direction) #repeat check in case of multiple overlaps
 	set_brush_scale(new_brush, new_brush_size)
 	set_brush_position(new_brush, new_brush_pos)
@@ -519,7 +563,8 @@ func get_brush_position(brush: Node3D) -> Vector3:
 #always set the scale BEFORE calling set_brush_position
 func set_brush_position(brush: Node3D, position: Vector3):
 	if brush.scale.x < 0.1:
-		printerr("ERROR BRUSH SCALE NOT SET")
+		pass
+		#printerr("ERROR BRUSH SCALE NOT SET")
 	#assert(brush.scale.x > 0.1)
 	position.x += brush.scale.x / 2.0
 	position.z += brush.scale.z / 2.0
@@ -552,7 +597,7 @@ func add_items() -> void:
 	#optionally make distance requirement between items
 
 func rand_range(n_min, n_max):
-	print(str(n_min) + ", " + str(n_max))
+	#print(str(n_min) + ", " + str(n_max))
 	return (randi() % (int(n_max) - int(n_min))) + int(n_min)
 
 	
