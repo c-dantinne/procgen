@@ -36,6 +36,13 @@ environment = SubResource("Environment_b63cb")
 
 [node name="World" type="Node" parent="."]
 script = ExtResource("1_hix2k")
+perimeter_width = null
+perimeter_length = null
+perimeter_buffer = null
+min_room_size = null
+max_room_size = null
+min_doorway_size = null
+min_surface_area = null
 
 [node name="Lights" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -0.162241, 0.986751, 0, -0.986751, -0.162241, 0, 4.42285, 0)

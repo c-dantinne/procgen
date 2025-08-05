@@ -618,12 +618,10 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 		if n["neighbor"] == brush:
 			corresponding_neighbor = n
 	assert(corresponding_neighbor != null)
-	var outer_min #
-	var outer_max
-	var inner_min
+	var inner_min #the edges where the brushes connect
 	var inner_max
-	var doorway_min
-	var doorway_max
+	var doorway_min : float
+	var doorway_max : float
 	var doorway_size
 	var remaining_space
 	var offset
@@ -631,46 +629,77 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 	add_child(new_wall)
 	brush.walls_n.append(new_wall)
 	match neighbor["dir_to_neighbor"]:
+		#the inner_min and inner_max are the shortest distance between a.x1 - a.x2, b.x1 - b.x2, a.x1 - b.x2, a.x2 - b.x1
 		NORTH, SOUTH:
-			if brush_pos.x < other_pos.x:
-				outer_min = brush_pos.x
-				inner_min = other_pos.x
-				inner_max = brush_pos.x + brush.scale.x
-				outer_max = other_pos.x + other_scale.x
-			else:
-				outer_min = other_pos.x
+			var m = min(abs(brush_pos.x - (brush_pos.x + brush.scale.x)), abs(other_pos.x - (other_pos.x + other_scale.x)), abs(brush_pos.x - (other_pos.x + other_scale.x)), abs(other_pos.x - (brush_pos.x + brush.scale.x)))
+			if m == abs(brush_pos.x - (brush_pos.x + brush.scale.x)):
 				inner_min = brush_pos.x
-				inner_max = other_pos.x + other_scale.x
-				outer_max = brush_pos.x + brush.scale.x
-			doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
-			remaining_space = inner_max - inner_min - doorway_size
-			offset = rand_range(0, remaining_space)
-			doorway_min = inner_min + offset
-			doorway_max = inner_max - (remaining_space - offset)
-		EAST, WEST:
-			if brush_pos.z < other_pos.z:
-				outer_min = brush_pos.z
-				inner_min = other_pos.z
-				inner_max = brush_pos.z + brush.scale.z
-				outer_max = other_pos.z + other_scale.z
+				inner_max = (brush_pos.x + brush.scale.x)
+			elif m == abs(other_pos.x - (other_pos.x + other_scale.x)):
+				inner_min = other_pos.x
+				inner_max = (other_pos.x + other_scale.x)
+			elif m == abs(brush_pos.x - (other_pos.x + other_scale.x)):
+				inner_min = brush_pos.x
+				inner_max = (other_pos.x + other_scale.x)
 			else:
-				outer_min = other_pos.z
+				inner_min = other_pos.x
+				inner_max = (brush_pos.x + brush.scale.x)
+		EAST, WEST:
+			var m = min(abs(brush_pos.z - (brush_pos.z + brush.scale.z)), abs(other_pos.z - (other_pos.z + other_scale.z)), abs(brush_pos.z - (other_pos.z + other_scale.z)), abs(other_pos.z - (brush_pos.z + brush.scale.z)))
+			if m == abs(brush_pos.z - (brush_pos.z + brush.scale.z)):
 				inner_min = brush_pos.z
-				inner_max = other_pos.z + other_scale.z
-				outer_max = brush_pos.z + brush.scale.z
-			doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
-			remaining_space = inner_max - inner_min - doorway_size
-			offset = rand_range(0, remaining_space)
-			doorway_min = inner_min + offset
-			doorway_max = inner_max - (remaining_space - offset)
+				inner_max = (brush_pos.z + brush.scale.z)
+			elif m == abs(other_pos.z - (other_pos.z + other_scale.z)):
+				inner_min = other_pos.z
+				inner_max = (other_pos.z + other_scale.z)
+			elif m == abs(brush_pos.z - (other_pos.z + other_scale.z)):
+				inner_min = brush_pos.z
+				inner_max = (other_pos.z + other_scale.z)
 		_:
 			printerr("Invalid dir_to_neighbor!")
+			
+	# Calculate door positions		
+	doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
+	remaining_space = inner_max - inner_min - doorway_size
+	offset = rand_range(0, remaining_space)
+	doorway_min = inner_min + offset
+	doorway_max = inner_max - (remaining_space - offset)
+	
+	# Get correct wall to split TODO - what about scenario where two neighbors are adjacent? need to think it through, maybe write test
+	var existing_walls
+	var wall_to_split
 	match neighbor["dir_to_neighbor"]:
 		NORTH:
-			new_wall.scale = brush.walls_n[0].scale
-			set_brush_position(new_wall, brush.walls_n[0].position)
-			brush.walls_n[0].scale.x = doorway_min - outer_min
-			brush.walls_n[0].position.x = outer_min
+			existing_walls = brush.walls_n
+		EAST:
+			existing_walls = brush.walls_e
+		SOUTH:
+			existing_walls = brush.walls_s
+		WEST:
+			existing_walls = brush.walls_w
+	for wall in existing_walls:
+		var wall_pos = get_brush_position(wall)
+		match neighbor["dir_to_neighbor"]:
+			NORTH, SOUTH:
+				if wall_pos.x <= inner_min && wall_pos.x + wall.scale.x >= inner_max:
+					wall_to_split = wall
+			EAST, WEST:
+				if wall_pos.z <= inner_min && wall_pos.z + wall.scale.z >= inner_max:
+					wall_to_split = wall
+	
+	var wall_prev_pos = wall_to_split.position
+	var wall_prev_size = wall_to_split.scale
+	match neighbor["dir_to_neighbor"]:
+		NORTH:
+			new_wall.scale = wall_to_split.scale
+			set_brush_position(new_wall, wall_to_split.position)
+			
+			#good here... are you sure????
+			wall_to_split.scale = abs((wall_prev_pos.x + wall_prev_size.x) - doorway_max)
+			new_wall.scale.x = doorway_min - wall_prev_pos.x
+			
+			set_brush_position(wall_to_split, (wall_prev_pos.x + wall_prev_size.x) - doorway_max)
+			
 			new_wall.scale.x = inner_max - doorway_max
 			new_wall.position.x = doorway_max
 		EAST:
@@ -695,6 +724,8 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 			new_wall.scale.z = inner_max - doorway_max
 			new_wall.position.z = doorway_max
 			brush.walls_w.append #oh no what do we do when there's multiple connections to one side
+			
+	#repeat wall splitting on neighbor brush
 		
 	
 			
