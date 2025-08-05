@@ -5,8 +5,8 @@ extends Node
 
 const floor_scene = preload("res://Scenes/brush.tscn")
 
-@export var perimeter_width : int = 1000
-@export var perimeter_length : int = 1000
+@export var perimeter_width : int = 4000
+@export var perimeter_length : int = 4000
 @export var perimeter_buffer : int = 100
 
 @export var min_room_size : int = 10
@@ -16,7 +16,7 @@ const floor_scene = preload("res://Scenes/brush.tscn")
 #@export var min_hallway_length = 500
 #@export var max_hallway_length = 500
 @export var min_doorway_size : int = 5
-@export var min_surface_area : int = 100
+@export var min_surface_area : int = 5000
 
 const NORTH := Vector3i(0, 0, 1)
 const EAST := Vector3i(1, 0, 0)
@@ -26,7 +26,7 @@ const directions_arr : Array[Vector3i] = [NORTH, EAST, SOUTH, WEST]
 const WALL_HEIGHT = 10
 const EPSILON : float = 0.000001
 
-var world_seed : int = 1124
+var world_seed : int = 2002
 
 var floor_brushes : Array[Brush] = []
 var wall_brushes : Array[Node3D] = []
@@ -58,6 +58,7 @@ func _ready() -> void:
 	#test_set_brush_position()
 	#test_get_overlapping_brush()
 	#test_is_adjacent_space_available()
+	#test_create_doorway()
 	
 	get_tree().root.get_node("Main").get_node("Player").position = floor_brushes[0].position
 	
@@ -353,12 +354,16 @@ func test_manually_gen_next_room():
 	
 func make_world() -> void:
 	# 1. Pick a random point within the inner perimeter.
-	var starting_point := Vector3i(rand_range(perimeter_buffer, inner_perimeter_width), 0, rand_range(perimeter_buffer, inner_perimeter_length))
 	# 2. Generate a rectangular floor with a random size between min and max.
+	# 3. If floor overlaps perimeter, shrink that side to fix.
+	# 5. Generate another rectangular floor. 70% probability of being a hallway, 30% being a room.
+	# 6. Shrink new room if overlapping perimeter or another floor.
+	# 7. Check if we are at minimum surface area. If so, proceed to generate walls.
+	# 8. Else, repeat floor generation.
+	var starting_point := Vector3i(rand_range(perimeter_buffer, inner_perimeter_width), 0, rand_range(perimeter_buffer, inner_perimeter_length))
 	var instance = floor_scene.instantiate()
 	add_child(instance)
 	var floor_size = Vector3i(rand_range(min_room_size, max_room_size), 1, rand_range(min_room_size, max_room_size))
-	# 3. If floor overlaps perimeter, shrink that side to fix.
 	if starting_point.x + floor_size.x > perimeter_width:
 		floor_size.x = perimeter_width - starting_point.x
 	if starting_point.y + floor_size.y > perimeter_width:
@@ -392,13 +397,11 @@ func make_world() -> void:
 			if current_brush_index < 0:
 				#printerr("ERROR: No adjacent space available before minimum surface area reached. Seed: " + str(seed))
 				return
-		# 5. Generate another rectangular floor. 70% probability of being a hallway, 30% being a room.
-		# 6. Shrink new room if overlapping perimeter or another floor.
-		# 7. Check if we are at minimum surface area. If so, proceed to generate walls.
-		# 8. Else, repeat floor generation.
+
 	generate_ceilings()
 	generate_walls()
 	get_neighbors_for_all_brushes()
+	create_doorways_full()
 	
 func is_adjacent_space_available(current_brush: Node3D, direction: Vector3i) -> bool:
 	var z = get_brush_position(current_brush).z
@@ -599,14 +602,29 @@ func create_doorways_isolated():
 	pass
 	
 func create_doorways_full():
-	#check if room has doors already
-	#if not, create one
-	#then check other walls where rooms touch but have no connections
-	#50% chance of adding a door there
 	for brush in floor_brushes:
 		for neighbor in brush.neighbors:
 			if not neighbor["is_connected"]:
 				create_doorway(brush, neighbor)
+	
+func test_create_doorway():
+	var a = floor_scene.instantiate()
+	add_child(a)
+	a.scale = Vector3(20, 1, 30)
+	set_brush_position(a, Vector3(40, 0, 40))
+	floor_brushes.append(a)
+	a.name = "Brush a"
+	var b = floor_scene.instantiate()
+	add_child(b)
+	b.scale = Vector3(20, 1, 10)
+	set_brush_position(b, Vector3(30, 0, 30))
+	floor_brushes.append(b)
+	b.name = "Brush b"
+	
+	generate_ceilings()
+	generate_walls()
+	get_neighbors_for_all_brushes()
+	create_doorways_full()
 	
 func create_doorway(brush : Brush, neighbor : Dictionary):
 	var other_brush_neighbors = neighbor["neighbor"].neighbors
@@ -625,9 +643,6 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 	var doorway_size
 	var remaining_space
 	var offset
-	var new_wall = floor_scene.instantiate()
-	add_child(new_wall)
-	brush.walls_n.append(new_wall)
 	match neighbor["dir_to_neighbor"]:
 		#the inner_min and inner_max are the shortest distance between a.x1 - a.x2, b.x1 - b.x2, a.x1 - b.x2, a.x2 - b.x1
 		NORTH, SOUTH:
@@ -655,79 +670,98 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 			elif m == abs(brush_pos.z - (other_pos.z + other_scale.z)):
 				inner_min = brush_pos.z
 				inner_max = (other_pos.z + other_scale.z)
+			else:
+				inner_min = other_pos.z
+				inner_max = (brush_pos.z + brush.scale.z)
 		_:
 			printerr("Invalid dir_to_neighbor!")
 			
 	# Calculate door positions		
 	doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
 	remaining_space = inner_max - inner_min - doorway_size
-	offset = rand_range(0, remaining_space)
+	#if remaining_space <= 0:
+		#remaining_space = 0
+		#offset = 0
+	#else:
+		#offset = rand_range(1, remaining_space)
+	offset = rand_range(1, remaining_space)
 	doorway_min = inner_min + offset
 	doorway_max = inner_max - (remaining_space - offset)
 	
-	# Get correct wall to split TODO - what about scenario where two neighbors are adjacent? need to think it through, maybe write test
-	var existing_walls
-	var wall_to_split
-	match neighbor["dir_to_neighbor"]:
-		NORTH:
-			existing_walls = brush.walls_n
-		EAST:
-			existing_walls = brush.walls_e
-		SOUTH:
-			existing_walls = brush.walls_s
-		WEST:
-			existing_walls = brush.walls_w
-	for wall in existing_walls:
-		var wall_pos = get_brush_position(wall)
-		match neighbor["dir_to_neighbor"]:
-			NORTH, SOUTH:
-				if wall_pos.x <= inner_min && wall_pos.x + wall.scale.x >= inner_max:
-					wall_to_split = wall
-			EAST, WEST:
-				if wall_pos.z <= inner_min && wall_pos.z + wall.scale.z >= inner_max:
-					wall_to_split = wall
-	
-	var wall_prev_pos = wall_to_split.position
-	var wall_prev_size = wall_to_split.scale
-	match neighbor["dir_to_neighbor"]:
-		NORTH:
-			new_wall.scale = wall_to_split.scale
-			set_brush_position(new_wall, wall_to_split.position)
-			
-			#good here... are you sure????
-			wall_to_split.scale = abs((wall_prev_pos.x + wall_prev_size.x) - doorway_max)
-			new_wall.scale.x = doorway_min - wall_prev_pos.x
-			
-			set_brush_position(wall_to_split, (wall_prev_pos.x + wall_prev_size.x) - doorway_max)
-			
-			new_wall.scale.x = inner_max - doorway_max
-			new_wall.position.x = doorway_max
-		EAST:
-			new_wall.scale = brush.walls_e[0].scale
-			set_brush_position(new_wall, brush.walls_e[0].position)
-			brush.walls_e[0].scale.z = doorway_min - outer_min
-			brush.walls_e[0].position.z = outer_min
-			new_wall.scale.z = inner_max - doorway_max
-			new_wall.position.z = doorway_max
-		SOUTH:
-			new_wall.scale = brush.walls_s[0].scale
-			set_brush_position(new_wall, brush.walls_s[0].position)
-			brush.walls_s[0].scale.x = doorway_min - outer_min
-			brush.walls_s[0].position.x = outer_min
-			new_wall.scale.x = inner_max - doorway_max
-			new_wall.position.x = doorway_max
-		WEST:
-			new_wall.scale = brush.walls_w[0].scale
-			set_brush_position(new_wall, brush.walls_w[0].position)
-			brush.walls_w[0].scale.z = doorway_min - outer_min
-			brush.walls_w[0].position.z = outer_min
-			new_wall.scale.z = inner_max - doorway_max
-			new_wall.position.z = doorway_max
-			brush.walls_w.append #oh no what do we do when there's multiple connections to one side
-			
-	#repeat wall splitting on neighbor brush
+	for i in range(2):
+		#repeat wall splitting on neighbor brush, simply reverse the direction
+		var current_neighbor
+		var current_brush
+		var new_wall = floor_scene.instantiate()
+		add_child(new_wall)
+		if i == 0:
+			current_neighbor = neighbor
+			current_brush = brush
+		else:
+			current_neighbor = corresponding_neighbor
+			current_brush = neighbor["neighbor"]
 		
-	
+		# Get correct wall to split TODO - what about scenario where two neighbors are adjacent? need to think it through, maybe write test
+		var existing_walls
+		var wall_to_split = null
+		match current_neighbor["dir_to_neighbor"]:
+			NORTH:
+				existing_walls = current_brush.walls_n
+				current_brush.walls_n.append(new_wall)
+			EAST:
+				existing_walls = current_brush.walls_e
+				current_brush.walls_n.append(new_wall)
+			SOUTH:
+				existing_walls = current_brush.walls_s
+				current_brush.walls_n.append(new_wall)
+			WEST:
+				existing_walls = current_brush.walls_w
+				current_brush.walls_n.append(new_wall)
+				
+		if existing_walls.size() > 1:
+			for wall in existing_walls:
+				var wall_pos = get_brush_position(wall)
+				match current_neighbor["dir_to_neighbor"]:
+					NORTH, SOUTH:
+						if wall_pos.x <= inner_min && wall_pos.x + wall.scale.x >= inner_max:
+							wall_to_split = wall
+					EAST, WEST:
+						if wall_pos.z <= inner_min && wall_pos.z + wall.scale.z >= inner_max:
+							wall_to_split = wall
+		else:
+			wall_to_split = existing_walls[0]
+						
+		assert(wall_to_split != null)
+		
+		#Split the wall in two, 
+		var wall_prev_pos = get_brush_position(wall_to_split)
+		var wall_prev_size = wall_to_split.scale
+		var old_wall_new_pos = wall_prev_pos
+		new_wall.scale = wall_to_split.scale
+		set_brush_position(new_wall, wall_prev_pos)
+		new_wall.name = wall_to_split.name + " NEW"
+		match current_neighbor["dir_to_neighbor"]:
+			NORTH, SOUTH:
+				#if abs((wall_prev_pos.x + wall_prev_size.x) - doorway_max) < EPSILON:
+					#wall_to_split.queue_free() #only necessary if doorway_min/max offsets are 0
+				#else:
+				#if doorway_min - wall_prev_pos.x < EPSILON:
+				wall_to_split.scale.x = (wall_prev_pos.x + wall_prev_size.x) - doorway_max
+				old_wall_new_pos.x = doorway_max
+				set_brush_position(wall_to_split, old_wall_new_pos)
+				
+				new_wall.scale.x = doorway_min - wall_prev_pos.x
+				set_brush_position(new_wall, wall_prev_pos)
+			EAST ,WEST:
+				wall_to_split.scale.z = (wall_prev_pos.z + wall_prev_size.z) - doorway_max
+				old_wall_new_pos.z = doorway_max
+				set_brush_position(wall_to_split, old_wall_new_pos)
+				
+				new_wall.scale.z = doorway_min - wall_prev_pos.z
+				set_brush_position(new_wall, wall_prev_pos)
+		current_neighbor["is_connected"] = true
+		
+		
 			
 func generate_walls():
 	var pos
@@ -745,6 +779,7 @@ func generate_walls():
 					pos.z += brush.scale.z - 1
 					set_brush_position(wall, pos)
 					brush.walls_n.append(wall)
+					wall.name = brush.name + " North Wall"
 				EAST:
 					wall.scale.x = 1
 					wall.scale.y = WALL_HEIGHT
@@ -755,6 +790,7 @@ func generate_walls():
 					pos.x += brush.scale.x - 1
 					set_brush_position(wall, pos)
 					brush.walls_e.append(wall)
+					wall.name = brush.name + " East Wall"
 				SOUTH:
 					wall.scale.x = brush.scale.x
 					wall.scale.y = WALL_HEIGHT
@@ -763,6 +799,7 @@ func generate_walls():
 					pos.y += 1
 					set_brush_position(wall, pos)
 					brush.walls_s.append(wall)
+					wall.name = brush.name + " South Wall"
 				WEST:
 					wall.scale.x = 1
 					wall.scale.y = WALL_HEIGHT
@@ -772,6 +809,7 @@ func generate_walls():
 					pos.y += 1
 					set_brush_position(wall, pos)
 					brush.walls_w.append(wall)
+					wall.name = brush.name + " West Wall"
 	
 func get_neighbors_for_all_brushes():
 	var pos
@@ -825,6 +863,9 @@ func add_items() -> void:
 
 func rand_range(n_min, n_max):
 	#print(str(n_min) + ", " + str(n_max))
+	#n_min inclusive, n_max exclusive
+	if n_min == n_max:
+		return n_min
 	return (randi() % (int(n_max) - int(n_min))) + int(n_min)
 
 	
