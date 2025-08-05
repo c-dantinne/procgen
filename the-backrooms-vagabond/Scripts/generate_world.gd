@@ -3,30 +3,32 @@ extends Node
 # we make calculations with brushes assuming that (0,0,0) is the bottom left of the perimeter
 # since godot places brushes at their center, we have specific methods for getting and setting position which place brushes correctly
 
-const floor_scene = preload("res://Scenes/floor.tscn")
+const floor_scene = preload("res://Scenes/brush.tscn")
 
-@export var perimeter_width : int = 4000
-@export var perimeter_length : int = 4000
+@export var perimeter_width : int = 1000
+@export var perimeter_length : int = 1000
 @export var perimeter_buffer : int = 100
 
-@export var min_room_size : int = 100
-@export var max_room_size : int = 500
+@export var min_room_size : int = 10
+@export var max_room_size : int = 50
 #@export var min_hallway_width = 500
 #@export var max_hallway_width = 500
 #@export var min_hallway_length = 500
 #@export var max_hallway_length = 500
-@export var min_doorway_size : int = 3
-@export var min_surface_area : int = 90000
+@export var min_doorway_size : int = 5
+@export var min_surface_area : int = 100
 
 const NORTH := Vector3i(0, 0, 1)
 const EAST := Vector3i(1, 0, 0)
 const SOUTH := Vector3i(0, 0, -1)
 const WEST := Vector3i(-1, 0, 0)
 const directions_arr : Array[Vector3i] = [NORTH, EAST, SOUTH, WEST]
+const WALL_HEIGHT = 10
+const EPSILON : float = 0.000001
 
-var world_seed : int = 0
+var world_seed : int = 1124
 
-var floor_brushes : Array[Node3D] = []
+var floor_brushes : Array[Brush] = []
 var wall_brushes : Array[Node3D] = []
 
 #
@@ -56,6 +58,8 @@ func _ready() -> void:
 	#test_set_brush_position()
 	#test_get_overlapping_brush()
 	#test_is_adjacent_space_available()
+	
+	get_tree().root.get_node("Main").get_node("Player").position = floor_brushes[0].position
 	
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
@@ -392,7 +396,9 @@ func make_world() -> void:
 		# 6. Shrink new room if overlapping perimeter or another floor.
 		# 7. Check if we are at minimum surface area. If so, proceed to generate walls.
 		# 8. Else, repeat floor generation.
+	generate_ceilings()
 	generate_walls()
+	get_neighbors_for_all_brushes()
 	
 func is_adjacent_space_available(current_brush: Node3D, direction: Vector3i) -> bool:
 	var z = get_brush_position(current_brush).z
@@ -495,7 +501,7 @@ func create_floor_brush(prev_brush: Node3D, direction: Vector3i) -> Node3D:
 	set_brush_scale(instance, new_brush_size)
 	set_brush_position(instance, new_brush_pos)
 	
-	var t = get_brush_position(instance)
+	#var t = get_brush_position(instance)
 	#print("pos before: %s %s %s" % [t.x, t.y, t.z])
 	#print("size before: %s %s %s" % [instance.scale.x, instance.scale.y, instance.scale.z])
 	
@@ -508,7 +514,7 @@ func create_floor_brush(prev_brush: Node3D, direction: Vector3i) -> Node3D:
 		instance.queue_free()
 		return null
 	
-	t = get_brush_position(instance)
+	#t = get_brush_position(instance)
 	#print("pos after: %s %s %s" % [t.x, t.y, t.z])
 	#print("size after: %s %s %s" % [instance.scale.x, instance.scale.y, instance.scale.z])
 	
@@ -557,6 +563,7 @@ func prevent_overlap(new_brush : Node3D, source_direction: Vector3i) -> Node3D:
 func get_brush_position(brush: Node3D) -> Vector3:
 	var pos = brush.position
 	pos.x -= brush.scale.x / 2.0
+	pos.y -= brush.scale.y / 2.0
 	pos.z -= brush.scale.z / 2.0
 	return pos
 	
@@ -568,25 +575,214 @@ func set_brush_position(brush: Node3D, position: Vector3):
 	#assert(brush.scale.x > 0.1)
 	position.x += brush.scale.x / 2.0
 	position.z += brush.scale.z / 2.0
+	position.y += brush.scale.y / 2.0
 	brush.position = position
 	
 func set_brush_scale(brush: Node3D, scale: Vector3i):
 	#print("Setting New Brush Scale: (%s %s %s)" % [scale.x, scale.y, scale.z])
 	brush.scale = scale
-	
-func store_walls():
-	pass
-	#store wall positions into the array on all four sides of the brush. 
-	#if a wall will overlap, check if the overlapping wall covers the entirety of the side.
-	# if so, that wall is good.
-	# if not, fill in on either side until that side is covered
-	#wait, this method wont really work because it assumes walls are constant - but they change if a new room touches an existing wall
 
-func create_doorways():
+func create_doorways_linear():
+	#check if room has doors already
+	#if not, create one
+	#then check other walls where rooms touch but have no connections
+	#50% chance of adding a door there
+	
 	pass
 	
-func generate_walls():
+func create_doorways_isolated():
+	#check if room has doors already
+	#if not, create one
+	#then check other walls where rooms touch but have no connections
+	#50% chance of adding a door there
+	
 	pass
+	
+func create_doorways_full():
+	#check if room has doors already
+	#if not, create one
+	#then check other walls where rooms touch but have no connections
+	#50% chance of adding a door there
+	for brush in floor_brushes:
+		for neighbor in brush.neighbors:
+			if not neighbor["is_connected"]:
+				create_doorway(brush, neighbor)
+	
+func create_doorway(brush : Brush, neighbor : Dictionary):
+	var other_brush_neighbors = neighbor["neighbor"].neighbors
+	var corresponding_neighbor = null
+	var brush_pos = get_brush_position(brush)
+	var other_pos = get_brush_position(neighbor["neighbor"])
+	var other_scale = neighbor["neighbor"].scale
+	for n in other_brush_neighbors:
+		if n["neighbor"] == brush:
+			corresponding_neighbor = n
+	assert(corresponding_neighbor != null)
+	var outer_min #
+	var outer_max
+	var inner_min
+	var inner_max
+	var doorway_min
+	var doorway_max
+	var doorway_size
+	var remaining_space
+	var offset
+	var new_wall = floor_scene.instantiate()
+	add_child(new_wall)
+	brush.walls_n.append(new_wall)
+	match neighbor["dir_to_neighbor"]:
+		NORTH, SOUTH:
+			if brush_pos.x < other_pos.x:
+				outer_min = brush_pos.x
+				inner_min = other_pos.x
+				inner_max = brush_pos.x + brush.scale.x
+				outer_max = other_pos.x + other_scale.x
+			else:
+				outer_min = other_pos.x
+				inner_min = brush_pos.x
+				inner_max = other_pos.x + other_scale.x
+				outer_max = brush_pos.x + brush.scale.x
+			doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
+			remaining_space = inner_max - inner_min - doorway_size
+			offset = rand_range(0, remaining_space)
+			doorway_min = inner_min + offset
+			doorway_max = inner_max - (remaining_space - offset)
+		EAST, WEST:
+			if brush_pos.z < other_pos.z:
+				outer_min = brush_pos.z
+				inner_min = other_pos.z
+				inner_max = brush_pos.z + brush.scale.z
+				outer_max = other_pos.z + other_scale.z
+			else:
+				outer_min = other_pos.z
+				inner_min = brush_pos.z
+				inner_max = other_pos.z + other_scale.z
+				outer_max = brush_pos.z + brush.scale.z
+			doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
+			remaining_space = inner_max - inner_min - doorway_size
+			offset = rand_range(0, remaining_space)
+			doorway_min = inner_min + offset
+			doorway_max = inner_max - (remaining_space - offset)
+		_:
+			printerr("Invalid dir_to_neighbor!")
+	match neighbor["dir_to_neighbor"]:
+		NORTH:
+			new_wall.scale = brush.walls_n[0].scale
+			set_brush_position(new_wall, brush.walls_n[0].position)
+			brush.walls_n[0].scale.x = doorway_min - outer_min
+			brush.walls_n[0].position.x = outer_min
+			new_wall.scale.x = inner_max - doorway_max
+			new_wall.position.x = doorway_max
+		EAST:
+			new_wall.scale = brush.walls_e[0].scale
+			set_brush_position(new_wall, brush.walls_e[0].position)
+			brush.walls_e[0].scale.z = doorway_min - outer_min
+			brush.walls_e[0].position.z = outer_min
+			new_wall.scale.z = inner_max - doorway_max
+			new_wall.position.z = doorway_max
+		SOUTH:
+			new_wall.scale = brush.walls_s[0].scale
+			set_brush_position(new_wall, brush.walls_s[0].position)
+			brush.walls_s[0].scale.x = doorway_min - outer_min
+			brush.walls_s[0].position.x = outer_min
+			new_wall.scale.x = inner_max - doorway_max
+			new_wall.position.x = doorway_max
+		WEST:
+			new_wall.scale = brush.walls_w[0].scale
+			set_brush_position(new_wall, brush.walls_w[0].position)
+			brush.walls_w[0].scale.z = doorway_min - outer_min
+			brush.walls_w[0].position.z = outer_min
+			new_wall.scale.z = inner_max - doorway_max
+			new_wall.position.z = doorway_max
+			brush.walls_w.append #oh no what do we do when there's multiple connections to one side
+		
+	
+			
+func generate_walls():
+	var pos
+	for brush in floor_brushes:
+		for dir in directions_arr:
+			var wall = floor_scene.instantiate()
+			add_child(wall)
+			match dir:
+				NORTH:
+					wall.scale.x = brush.scale.x
+					wall.scale.y = WALL_HEIGHT
+					wall.scale.z = 1
+					pos = get_brush_position(brush)
+					pos.y += 1
+					pos.z += brush.scale.z - 1
+					set_brush_position(wall, pos)
+					brush.walls_n.append(wall)
+				EAST:
+					wall.scale.x = 1
+					wall.scale.y = WALL_HEIGHT
+					wall.scale.z = brush.scale.z - 2
+					pos = get_brush_position(brush)
+					pos.z += 1
+					pos.y += 1
+					pos.x += brush.scale.x - 1
+					set_brush_position(wall, pos)
+					brush.walls_e.append(wall)
+				SOUTH:
+					wall.scale.x = brush.scale.x
+					wall.scale.y = WALL_HEIGHT
+					wall.scale.z = 1
+					pos = get_brush_position(brush)
+					pos.y += 1
+					set_brush_position(wall, pos)
+					brush.walls_s.append(wall)
+				WEST:
+					wall.scale.x = 1
+					wall.scale.y = WALL_HEIGHT
+					wall.scale.z = brush.scale.z - 2
+					pos = get_brush_position(brush)
+					pos.z += 1
+					pos.y += 1
+					set_brush_position(wall, pos)
+					brush.walls_w.append(wall)
+	
+func get_neighbors_for_all_brushes():
+	var pos
+	for brush in floor_brushes:
+		pos = get_brush_position(brush)
+		for other in floor_brushes:
+			if other == brush:
+				continue
+			var other_pos = get_brush_position(other)
+			for dir in directions_arr:
+				match dir:
+					NORTH: 
+						if abs(other_pos.z - (pos.z + brush.scale.z)) > EPSILON || other_pos.x + other.scale.x < pos.x + min_doorway_size || other_pos.x > pos.x + brush.scale.x - min_doorway_size:
+							continue
+					EAST:
+						if abs(other_pos.x - (pos.x + brush.scale.x)) > EPSILON || other_pos.z + other.scale.z < pos.z + min_doorway_size || other_pos.z > pos.z + brush.scale.z - min_doorway_size:
+							continue
+					SOUTH:
+						if abs((other_pos.z + other.scale.z) - pos.z) > EPSILON || other_pos.x + other.scale.x < pos.x + min_doorway_size || other_pos.x > pos.x + brush.scale.x - min_doorway_size:
+							continue
+					WEST:
+						if abs((other_pos.x + other.scale.x) - pos.x) > EPSILON || other_pos.z + other.scale.z < pos.z + min_doorway_size || other_pos.z > pos.z + brush.scale.z - min_doorway_size:
+							continue
+					_:
+						continue
+				var duplicate_entry = false
+				for neighbor in brush.neighbors:
+					if neighbor["neighbor"] == other:
+						duplicate_entry = true
+						continue
+				if not duplicate_entry:
+					brush.neighbors.append({"neighbor": other, "is_connected": false, "dir_to_neighbor": dir})
+		print(brush)
+		for n in brush.neighbors:
+			print(n)
+
+func generate_ceilings():
+	for brush in floor_brushes:
+		var ceiling = floor_scene.instantiate()
+		add_child(ceiling)
+		ceiling.scale = brush.scale
+		ceiling.position = brush.position + Vector3(0, WALL_HEIGHT + 1, 0)
 	
 func add_items() -> void:
 	pass

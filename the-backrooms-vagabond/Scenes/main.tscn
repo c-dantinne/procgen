@@ -31,9 +31,6 @@ albedo_color = Color(0, 1, 0, 1)
 
 [node name="Main" type="Node3D"]
 
-[node name="CharacterBody3D" parent="." instance=ExtResource("1_wh2vi")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.098, 0, 0)
-
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_b63cb")
 
@@ -62,3 +59,5 @@ surface_material_override/0 = SubResource("StandardMaterial3D_7py4c")
 transform = Transform3D(0.00940697, 9.99956, 4.37094e-08, 1.28017e-16, -4.37114e-07, 1, 0.999956, -0.0940697, -4.11192e-10, 5.13023, 0, 0.0564902)
 mesh = SubResource("PrismMesh_a4o7j")
 surface_material_override/0 = SubResource("StandardMaterial3D_jhom3")
+
+[node name="Player" parent="." instance=ExtResource("1_wh2vi")]

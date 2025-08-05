@@ -4,7 +4,7 @@
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_h3gb3"]
 
-[node name="CharacterBody3D" type="CharacterBody3D"]
+[node name="Player" type="CharacterBody3D"]
 script = ExtResource("1_jjptl")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]

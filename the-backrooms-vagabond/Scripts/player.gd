@@ -6,6 +6,7 @@ var jump_speed = 50
 var mouse_sensitivity = 0.002
 
 func _ready():
+	$CollisionShape3D.disabled = true
 	pass
 	#Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
