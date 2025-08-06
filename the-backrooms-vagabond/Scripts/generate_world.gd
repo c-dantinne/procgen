@@ -5,18 +5,18 @@ extends Node
 
 const floor_scene = preload("res://Scenes/brush.tscn")
 
-@export var perimeter_width : int = 2000
-@export var perimeter_length : int = 2000
+@export var perimeter_width : int = 250
+@export var perimeter_length : int = 250
 @export var perimeter_buffer : int = 100
 
-@export var min_room_size : int = 16
+@export var min_room_size : int = 15
 @export var max_room_size : int = 80
 #@export var min_hallway_width = 500
 #@export var max_hallway_width = 500
 #@export var min_hallway_length = 500
 #@export var max_hallway_length = 500
-@export var min_doorway_size : int = 8
-@export var min_surface_area : int = 20000
+@export var min_doorway_size : int = 7
+@export var min_surface_area : int = 1000
 
 const NORTH := Vector3i(0, 0, 1)
 const EAST := Vector3i(1, 0, 0)
@@ -26,7 +26,7 @@ const directions_arr : Array[Vector3i] = [NORTH, EAST, SOUTH, WEST]
 const WALL_HEIGHT = 10
 const EPSILON : float = 0.000001
 
-var world_seed : int = 0410
+var world_seed : int = 2
 
 var floor_brushes : Array[Brush] = []
 var wall_brushes : Array[Node3D] = []
@@ -395,13 +395,17 @@ func make_world() -> void:
 				current_brush_index = len(brushes_with_adjacent_space) - 1
 				#print("current index: " + str(current_brush_index))
 			if current_brush_index < 0:
-				#printerr("ERROR: No adjacent space available before minimum surface area reached. Seed: " + str(seed))
-				return
-
+				print("ERROR: No adjacent space available before minimum surface area reached.")
+				print("Seed: " + str(world_seed))
+				current_surface_area = min_surface_area
+				break
+				
 	generate_ceilings()
 	generate_walls()
 	get_neighbors_for_all_brushes()
-	create_doorways_full()
+	#create_doorways_full()
+	create_doorways_isolated()
+	find_isolated_areas()
 	
 	var num_broken = 0
 	for brush in floor_brushes:
@@ -600,13 +604,13 @@ func create_doorways_linear():
 	pass
 	
 func create_doorways_isolated():
-	#check if room has doors already
-	#if not, create one
-	#then check other walls where rooms touch but have no connections
-	#50% chance of adding a door there
+	for brush in floor_brushes:
+		for neighbor in brush.neighbors:
+			if not neighbor["is_connected"] and randi() % 2 == 0:
+				create_doorway(brush, neighbor)
 	
-	pass
-	
+#random walking recursive backtracking perimeter contrained isolated pathfinder with overlap avoidance
+
 func create_doorways_full():
 	for brush in floor_brushes:
 		for neighbor in brush.neighbors:
@@ -924,7 +928,51 @@ func generate_ceilings():
 		floor_brushes.erase(brush)
 		brush.queue_free()
 		
+func find_isolated_areas() -> Array:
+	var areas = []
+	var current_area = []
+	var all_brushes_tracked = []
+	var found_brush = true
+	var current_brush = floor_brushes[0]
 
+	while all_brushes_tracked.size() < floor_brushes.size():
+		found_brush = false
+		if current_brush:
+			current_area.append(current_brush)
+			all_brushes_tracked.append(current_brush)
+		for n in current_brush.neighbors:
+			if n["neighbor"] not in current_area and n["is_connected"]:
+				current_brush = n["neighbor"]
+				found_brush = true
+				break
+		if found_brush:
+			continue
+		#if we hit a dead end, loop through brushes in current_area to see if we can find another path
+		for brush in current_area:
+			for n in brush.neighbors:
+				if n["neighbor"] not in current_area and n["is_connected"]:
+					current_brush = n["neighbor"]
+					found_brush = true
+					break
+		if found_brush:
+			continue
+		#no more brushes in this area
+		areas.append(current_area.duplicate(true))
+		current_area.clear()
+		for brush in floor_brushes:
+			if brush not in all_brushes_tracked:
+				current_brush = brush
+	print("Areas Found: " + str(areas.size()))
+	print("Brushes per area:")
+	var t = 0
+	for area in areas:
+		for b in area:
+			print(b.name)
+		t += area.size()
+		print(area.size())
+	print("Number of brushes found: " + str(t))
+	print("Total size: " + str(floor_brushes.size()))
+	return areas
 	
 func add_items() -> void:
 	var items
@@ -947,6 +995,8 @@ func rand_range(n_min, n_max):
 		return n_min
 	return (randi() % (int(n_max) - int(n_min))) + int(n_min)
 
-	
+#IDEAS:
+# If the world has more than one isolated area, spawn a note explaining how "I fell through the floor and now I'm in a place that seems... completely separated from where I was." Make sure it spawns in the same area as the player.
+# Device that points toward noclip holes
 	
 	
