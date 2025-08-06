@@ -5,18 +5,18 @@ extends Node
 
 const floor_scene = preload("res://Scenes/brush.tscn")
 
-@export var perimeter_width : int = 4000
-@export var perimeter_length : int = 4000
+@export var perimeter_width : int = 2000
+@export var perimeter_length : int = 2000
 @export var perimeter_buffer : int = 100
 
-@export var min_room_size : int = 10
-@export var max_room_size : int = 50
+@export var min_room_size : int = 16
+@export var max_room_size : int = 80
 #@export var min_hallway_width = 500
 #@export var max_hallway_width = 500
 #@export var min_hallway_length = 500
 #@export var max_hallway_length = 500
-@export var min_doorway_size : int = 5
-@export var min_surface_area : int = 5000
+@export var min_doorway_size : int = 8
+@export var min_surface_area : int = 20000
 
 const NORTH := Vector3i(0, 0, 1)
 const EAST := Vector3i(1, 0, 0)
@@ -26,7 +26,7 @@ const directions_arr : Array[Vector3i] = [NORTH, EAST, SOUTH, WEST]
 const WALL_HEIGHT = 10
 const EPSILON : float = 0.000001
 
-var world_seed : int = 2002
+var world_seed : int = 0410
 
 var floor_brushes : Array[Brush] = []
 var wall_brushes : Array[Node3D] = []
@@ -61,6 +61,7 @@ func _ready() -> void:
 	#test_create_doorway()
 	
 	get_tree().root.get_node("Main").get_node("Player").position = floor_brushes[0].position
+	get_tree().root.get_node("Main").get_node("Compass").position = floor_brushes[0].position
 	
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
@@ -105,7 +106,6 @@ func test_get_brush_position():
 	
 func test_set_brush_position():
 	var instance = floor_scene.instantiate()
-	var a : Vector3
 	var new_pos : Vector3i
 	add_child(instance)
 	
@@ -403,6 +403,12 @@ func make_world() -> void:
 	get_neighbors_for_all_brushes()
 	create_doorways_full()
 	
+	var num_broken = 0
+	for brush in floor_brushes:
+		if brush.scale.x == 0 || brush.scale.z == 0:
+			num_broken += 1
+	print("num broken: " + str(num_broken))
+	
 func is_adjacent_space_available(current_brush: Node3D, direction: Vector3i) -> bool:
 	var z = get_brush_position(current_brush).z
 	var x = get_brush_position(current_brush).x
@@ -614,12 +620,20 @@ func test_create_doorway():
 	set_brush_position(a, Vector3(40, 0, 40))
 	floor_brushes.append(a)
 	a.name = "Brush a"
+	
 	var b = floor_scene.instantiate()
 	add_child(b)
 	b.scale = Vector3(20, 1, 10)
 	set_brush_position(b, Vector3(30, 0, 30))
 	floor_brushes.append(b)
 	b.name = "Brush b"
+	
+	var c = floor_scene.instantiate()
+	add_child(c)
+	c.scale = Vector3(5, 1, 5)
+	set_brush_position(c, Vector3(35, 0, 45))
+	floor_brushes.append(c)
+	c.name = "Brush c"
 	
 	generate_ceilings()
 	generate_walls()
@@ -645,46 +659,55 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 	var offset
 	match neighbor["dir_to_neighbor"]:
 		#the inner_min and inner_max are the shortest distance between a.x1 - a.x2, b.x1 - b.x2, a.x1 - b.x2, a.x2 - b.x1
-		NORTH, SOUTH:
+		NORTH, SOUTH: #add 1 to account for wall thickness (1 unit)
 			var m = min(abs(brush_pos.x - (brush_pos.x + brush.scale.x)), abs(other_pos.x - (other_pos.x + other_scale.x)), abs(brush_pos.x - (other_pos.x + other_scale.x)), abs(other_pos.x - (brush_pos.x + brush.scale.x)))
 			if m == abs(brush_pos.x - (brush_pos.x + brush.scale.x)):
-				inner_min = brush_pos.x
-				inner_max = (brush_pos.x + brush.scale.x)
+				inner_min = brush_pos.x + 1
+				inner_max = (brush_pos.x + brush.scale.x) - 1
 			elif m == abs(other_pos.x - (other_pos.x + other_scale.x)):
-				inner_min = other_pos.x
-				inner_max = (other_pos.x + other_scale.x)
+				inner_min = other_pos.x + 1
+				inner_max = (other_pos.x + other_scale.x) - 1
 			elif m == abs(brush_pos.x - (other_pos.x + other_scale.x)):
-				inner_min = brush_pos.x
-				inner_max = (other_pos.x + other_scale.x)
+				inner_min = brush_pos.x + 1
+				inner_max = (other_pos.x + other_scale.x) - 1
 			else:
-				inner_min = other_pos.x
-				inner_max = (brush_pos.x + brush.scale.x)
-		EAST, WEST:
+				inner_min = other_pos.x + 1
+				inner_max = (brush_pos.x + brush.scale.x) - 1
+		EAST, WEST: #add 2 to account for E + W walls being shorter than N + S
 			var m = min(abs(brush_pos.z - (brush_pos.z + brush.scale.z)), abs(other_pos.z - (other_pos.z + other_scale.z)), abs(brush_pos.z - (other_pos.z + other_scale.z)), abs(other_pos.z - (brush_pos.z + brush.scale.z)))
 			if m == abs(brush_pos.z - (brush_pos.z + brush.scale.z)):
-				inner_min = brush_pos.z
-				inner_max = (brush_pos.z + brush.scale.z)
+				inner_min = brush_pos.z + 2
+				inner_max = (brush_pos.z + brush.scale.z) - 2
 			elif m == abs(other_pos.z - (other_pos.z + other_scale.z)):
-				inner_min = other_pos.z
-				inner_max = (other_pos.z + other_scale.z)
+				#print("brush.name: " + brush.name)
+				#print("neighbor[neighbor].name: " + neighbor["neighbor"].name)
+				inner_min = other_pos.z + 2
+				inner_max = (other_pos.z + other_scale.z) - 2
+				#print("inner_min: " + str(inner_min))
+				#print("inner_max: " + str(inner_max))
 			elif m == abs(brush_pos.z - (other_pos.z + other_scale.z)):
-				inner_min = brush_pos.z
-				inner_max = (other_pos.z + other_scale.z)
+				inner_min = brush_pos.z + 2
+				inner_max = (other_pos.z + other_scale.z) - 2
 			else:
-				inner_min = other_pos.z
-				inner_max = (brush_pos.z + brush.scale.z)
+				inner_min = other_pos.z + 2
+				inner_max = (brush_pos.z + brush.scale.z) - 2
 		_:
 			printerr("Invalid dir_to_neighbor!")
 			
 	# Calculate door positions		
-	doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
-	remaining_space = inner_max - inner_min - doorway_size
+	if inner_max - inner_min > min_doorway_size:
+		doorway_size = rand_range(min_doorway_size, inner_max - inner_min)
+		remaining_space = inner_max - inner_min - doorway_size
+		offset = rand_range(1, remaining_space)
+	else:
+		offset = 0
+		remaining_space = 0
 	#if remaining_space <= 0:
 		#remaining_space = 0
 		#offset = 0
 	#else:
 		#offset = rand_range(1, remaining_space)
-	offset = rand_range(1, remaining_space)
+	
 	doorway_min = inner_min + offset
 	doorway_max = inner_max - (remaining_space - offset)
 	
@@ -710,28 +733,51 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 				current_brush.walls_n.append(new_wall)
 			EAST:
 				existing_walls = current_brush.walls_e
-				current_brush.walls_n.append(new_wall)
+				current_brush.walls_e.append(new_wall)
 			SOUTH:
 				existing_walls = current_brush.walls_s
-				current_brush.walls_n.append(new_wall)
+				current_brush.walls_s.append(new_wall)
 			WEST:
 				existing_walls = current_brush.walls_w
-				current_brush.walls_n.append(new_wall)
+				current_brush.walls_w.append(new_wall)
 				
-		if existing_walls.size() > 1:
-			for wall in existing_walls:
-				var wall_pos = get_brush_position(wall)
-				match current_neighbor["dir_to_neighbor"]:
-					NORTH, SOUTH:
-						if wall_pos.x <= inner_min && wall_pos.x + wall.scale.x >= inner_max:
-							wall_to_split = wall
-					EAST, WEST:
-						if wall_pos.z <= inner_min && wall_pos.z + wall.scale.z >= inner_max:
-							wall_to_split = wall
-		else:
+		for wall in existing_walls:
+			var wall_pos = get_brush_position(wall)
+			match current_neighbor["dir_to_neighbor"]:
+				NORTH, SOUTH:
+					if wall_pos.x <= doorway_min && wall_pos.x + wall.scale.x >= doorway_max:
+						wall_to_split = wall
+				EAST, WEST:
+					if wall_pos.z <= doorway_min && wall_pos.z + wall.scale.z >= doorway_max:
+						wall_to_split = wall
+					#else:
+						#print()
+						#print(wall_pos.z)
+						#print(wall.scale.z)
+			
+		if wall_to_split == null:
+			if inner_min == doorway_min && inner_max == doorway_max:
+				return
+			printerr("ERROR: WALL_TO_SPLIT IS NULL. MALFORMED WALLS GENERATED.")
 			wall_to_split = existing_walls[0]
-						
-		assert(wall_to_split != null)
+			#print("iteration: " + str(i))
+			#print(current_brush)
+			#print("inner_min: " + str(inner_min))
+			#print("inner_max: " + str(inner_max))
+			#print("doorway_min: " + str(doorway_min))
+			#print("doorway_max: " + str(doorway_max))
+			#print(current_neighbor)
+			#print(current_neighbor["neighbor"].name)
+			#print(existing_walls[0].scale)
+			#print("ASSERTION")
+			#print()
+			#assert(wall_to_split != null)
+			
+		
+		#the problem is that brush a is making a doorway thats bigger than brush c's entire wall
+		#we need to consider brush c's size in the doorway calculations
+		
+		#the new problem is that west and east have walls 1 unit shorter on each side lengthwise!
 		
 		#Split the wall in two, 
 		var wall_prev_pos = get_brush_position(wall_to_split)
@@ -761,6 +807,22 @@ func create_doorway(brush : Brush, neighbor : Dictionary):
 				set_brush_position(new_wall, wall_prev_pos)
 		current_neighbor["is_connected"] = true
 		
+		if wall_to_split.scale.x <= 0 || wall_to_split.scale.z <= 0:
+			#print(wall_to_split.name)
+			#print("inner_min: " + str(inner_min))
+			#print("inner_max: " + str(inner_max))
+			#print("doorway_min: " + str(doorway_min))
+			#print("doorway_max: " + str(doorway_max))
+			#assert(false)
+			wall_to_split.queue_free()
+		if new_wall.scale.x <= 0 || new_wall.scale.z <= 0:
+			#print(new_wall.name)
+			#print("inner_min: " + str(inner_min))
+			#print("inner_max: " + str(inner_max))
+			#print("doorway_min: " + str(doorway_min))
+			#print("doorway_max: " + str(doorway_max))
+			#assert(false)
+			new_wall.queue_free()
 		
 			
 func generate_walls():
@@ -842,19 +904,36 @@ func get_neighbors_for_all_brushes():
 						continue
 				if not duplicate_entry:
 					brush.neighbors.append({"neighbor": other, "is_connected": false, "dir_to_neighbor": dir})
-		print(brush)
-		for n in brush.neighbors:
-			print(n)
+		#print(brush)
+		#for n in brush.neighbors:
+			#print(n)
 
 func generate_ceilings():
+	var brushes_to_remove = []
 	for brush in floor_brushes:
-		var ceiling = floor_scene.instantiate()
-		add_child(ceiling)
-		ceiling.scale = brush.scale
-		ceiling.position = brush.position + Vector3(0, WALL_HEIGHT + 1, 0)
+		#remove invalid brushes
+		if brush.scale.x <= 3 || brush.scale.z <= 3:
+			brushes_to_remove.append(brush)
+		else:
+			var ceiling = floor_scene.instantiate()
+			add_child(ceiling)
+			ceiling.scale = brush.scale
+			ceiling.position = brush.position + Vector3(0, WALL_HEIGHT + 1, 0)
+			ceiling.name = brush.name + " Ceiling"
+	for brush in brushes_to_remove:
+		floor_brushes.erase(brush)
+		brush.queue_free()
+		
+
 	
 func add_items() -> void:
-	pass
+	var items
+	var accessible_floor_brushes = []
+	for brush in floor_brushes:
+		if brush.scale.x > min_doorway_size && brush.scale.z > min_doorway_size:
+			accessible_floor_brushes.append(brush)
+	for item in items:
+		pass
 	#go one unit by one to make a grid of points
 	#if the point is in a room and at least 1 unit away from a wall, 
 	#save it, otherwise discard it
