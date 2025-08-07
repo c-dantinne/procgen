@@ -17,6 +17,17 @@ const floor_scene = preload("res://Scenes/brush.tscn")
 #@export var max_hallway_length = 500
 @export var min_doorway_size : int = 7
 @export var min_surface_area : int = 1000
+var world_seed : int = 1124 
+
+#NOTE: SETTINGS IDEAL FOR TESTING:
+# perimeter_width : int = 250
+# var perimeter_length : int = 250
+# var perimeter_buffer : int = 100
+#@export var min_room_size : int = 15
+#@export var max_room_size : int = 80
+#@export var min_doorway_size : int = 7
+#@export var min_surface_area : int = 1000
+#var world_seed : int = 1124 
 
 const NORTH := Vector3i(0, 0, 1)
 const EAST := Vector3i(1, 0, 0)
@@ -25,13 +36,12 @@ const WEST := Vector3i(-1, 0, 0)
 const directions_arr : Array[Vector3i] = [NORTH, EAST, SOUTH, WEST]
 const WALL_HEIGHT = 10
 const EPSILON : float = 0.000001
-
-var world_seed : int = 2
+const WALL_OFFSET = 2
+const PLAYER_OFFSET = 3
 
 var floor_brushes : Array[Brush] = []
 var wall_brushes : Array[Node3D] = []
 
-#
 var inner_perimeter_width : int = perimeter_width - perimeter_buffer
 var inner_perimeter_length : int = perimeter_length - perimeter_buffer
 var current_surface_area : int = 0
@@ -40,6 +50,7 @@ var current_brush_index : int = 0
 var brushes_with_adjacent_space : Array[Node3D] = []
 
 func _ready() -> void:
+	assert(min_doorway_size >= 5)
 	assert(min_doorway_size <= float(min_room_size) / 2.0)
 	Engine.print_error_messages = false
 	if !world_seed:
@@ -974,26 +985,64 @@ func find_isolated_areas() -> Array:
 	print("Total size: " + str(floor_brushes.size()))
 	return areas
 	
-func add_items() -> void:
-	var items
+func add_items_and_player(starter_area, player) -> void:
+	var starter_items
+	var other_items
 	var accessible_floor_brushes = []
+	var accessible_starter_brushes = []
+	var b
+	var p
 	for brush in floor_brushes:
 		if brush.scale.x > min_doorway_size && brush.scale.z > min_doorway_size:
 			accessible_floor_brushes.append(brush)
-	for item in items:
-		pass
-	#go one unit by one to make a grid of points
-	#if the point is in a room and at least 1 unit away from a wall, 
-	#save it, otherwise discard it
-	#then place items in random points, removing selected points from list
-	#optionally make distance requirement between items
+			if brush in starter_area:
+				accessible_starter_brushes.append(brush)
+	b = accessible_starter_brushes[rand_range(0, accessible_starter_brushes.size() - 1)]
+	p = get_brush_position(b)
+	player.position.x = rand_range(p.x + PLAYER_OFFSET, p.x + b.scale.x - PLAYER_OFFSET)
+	player.position.y = 1
+	player.position.z = rand_range(p.z + PLAYER_OFFSET, p.z + b.scale.z - PLAYER_OFFSET)
+	if floor_brushes.size() > 1: #dont spawn items in starting room
+		accessible_floor_brushes.erase(b)
+	for item in starter_items:
+		b = accessible_starter_brushes[rand_range(0, accessible_starter_brushes.size() - 1)]
+		p = get_brush_position(b)
+		item.position.x = rand_range(p.x + WALL_OFFSET, p.x + b.scale.x - WALL_OFFSET)
+		item.position.y = 1
+		item.position.z = rand_range(p.z + WALL_OFFSET, p.z + b.scale.z - WALL_OFFSET)
+	for item in other_items:
+		b = accessible_floor_brushes[rand_range(0, accessible_floor_brushes.size() - 1)]
+		p = get_brush_position(b)
+		item.position.x = rand_range(p.x + WALL_OFFSET, p.x + b.scale.x - WALL_OFFSET)
+		item.position.y = 1
+		item.position.z = rand_range(p.z + WALL_OFFSET, p.z + b.scale.z - WALL_OFFSET)
+	
+
+
+#Adds the noclip holes that allow players to warp isolated areas
+func add_connecting_noclip_holes():
+	#ensure hole doesnt spawn directly under player spawn
+	pass
+	
+func add_exit(wall_brushes):
+	const EXIT_SIZE = 4
+	for wall in wall_brushes:
+		var pos = get_brush_position(pos)
+		if wall.scale.x > min_doorway_size: 
+			var exit_start = rand_range(pos.x, pos.x + wall.scale.x - EXIT_SIZE)
+			var x
+		if wall.scale.z > min_doorway_size:
+			pass
+func generate_lighting():
+	pass
 
 func rand_range(n_min, n_max):
-	#print(str(n_min) + ", " + str(n_max))
 	#n_min inclusive, n_max exclusive
 	if n_min == n_max:
 		return n_min
 	return (randi() % (int(n_max) - int(n_min))) + int(n_min)
+
+
 
 #IDEAS:
 # If the world has more than one isolated area, spawn a note explaining how "I fell through the floor and now I'm in a place that seems... completely separated from where I was." Make sure it spawns in the same area as the player.
