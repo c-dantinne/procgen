@@ -1,7 +1,8 @@
-[gd_scene load_steps=11 format=3 uid="uid://dpcc8812q2qh4"]
+[gd_scene load_steps=12 format=3 uid="uid://dpcc8812q2qh4"]
 
 [ext_resource type="Script" path="res://Scripts/generate_world.gd" id="1_hix2k"]
 [ext_resource type="PackedScene" uid="uid://lwcy48f36ofc" path="res://Scenes/player.tscn" id="1_wh2vi"]
+[ext_resource type="PackedScene" uid="uid://dnypq0dbu7ydd" path="res://Scenes/create_level_ui.tscn" id="3_0sgph"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_s2c5c"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -67,3 +68,5 @@ transform = Transform3D(0.00940697, 9.99956, 4.37094e-08, 1.28017e-16, -4.37114e
 mesh = SubResource("PrismMesh_a4o7j")
 skeleton = NodePath("../..")
 surface_material_override/0 = SubResource("StandardMaterial3D_jhom3")
+
+[node name="CreateLevelUI" parent="." instance=ExtResource("3_0sgph")]

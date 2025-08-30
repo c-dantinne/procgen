@@ -1,0 +1,45 @@
+[gd_scene load_steps=3 format=3 uid="uid://duwiqvvt05otm"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_gbkrd"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hsn6a"]
+bg_color = Color(0.997756, 0.279222, 0.587295, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0, 0, 0, 1)
+
+[node name="Inventory" type="Node2D"]
+
+[node name="TextureRect" type="TextureRect" parent="."]
+offset_right = 842.0
+offset_bottom = 619.0
+texture = SubResource("CanvasTexture_gbkrd")
+
+[node name="GridContainer" type="GridContainer" parent="."]
+offset_right = 700.0
+offset_bottom = 443.0
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 20
+columns = 4
+
+[node name="Slot1" type="Panel" parent="GridContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hsn6a")
+
+[node name="Slot2" type="Panel" parent="GridContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hsn6a")
+
+[node name="Slot3" type="Panel" parent="GridContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hsn6a")
+
+[node name="Slot4" type="Panel" parent="GridContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hsn6a")

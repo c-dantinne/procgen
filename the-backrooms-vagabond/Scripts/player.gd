@@ -28,6 +28,7 @@ func _input(event) -> void:
 		$Camera3D.rotate_x(-event.relative.y * mouse_sensitivity)
 		$Camera3D.rotation.x = clampf($Camera3D.rotation.x, -deg_to_rad(90), deg_to_rad(90))
 		
-		
-		
+rotate
+#every few frames: raycast a short distance. if grabbable_item exists, display PRESS E TO GRAB
+#on click: raycast a short distance. if grabbable_item exists, add item to inventory
 		

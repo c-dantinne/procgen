@@ -1,0 +1,107 @@
+[gd_scene load_steps=2 format=3 uid="uid://dnypq0dbu7ydd"]
+
+[ext_resource type="Script" path="res://Scenes/create_level_ui.gd" id="1_fdoib"]
+
+[node name="CreateLevelUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -29.0
+offset_top = -156.0
+offset_right = -29.0
+offset_bottom = -156.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_fdoib")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -140.5
+offset_right = 140.5
+offset_bottom = 255.0
+grow_horizontal = 2
+theme_override_constants/separation = 10
+
+[node name="CreateALevel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Create a Level"
+horizontal_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 50
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Presets"
+horizontal_alignment = 1
+
+[node name="OptionButton" type="OptionButton" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+selected = 0
+item_count = 4
+popup/item_0/text = "Default"
+popup/item_1/text = "Small"
+popup/item_1/id = 1
+popup/item_2/text = "Large"
+popup/item_2/id = 2
+popup/item_3/text = "Huge"
+popup/item_3/id = 3
+
+[node name="PerimeterWidthLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Perimeter Width"
+horizontal_alignment = 1
+
+[node name="PerimeterWidth" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="PerimeterLengthLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Perimeter Length"
+horizontal_alignment = 1
+
+[node name="PerimeterLength" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="MaxRoomSizeLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Maximum Room Size"
+horizontal_alignment = 1
+
+[node name="MaxRoomSize" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="MinRoomSizeLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Minimum Room Size"
+horizontal_alignment = 1
+
+[node name="MinRoomSize" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="MinDoorwaySizeLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Minimum Doorway Size"
+horizontal_alignment = 1
+
+[node name="MinDoorwaySize" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="MinSurfaceAreaLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Surface Area"
+horizontal_alignment = 1
+
+[node name="MinSurfaceArea" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="GenerateLevelButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Generate Level"
+
+[connection signal="pressed" from="VBoxContainer/GenerateLevelButton" to="." method="_on_generate_level_button_pressed"]

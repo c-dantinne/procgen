@@ -17,7 +17,8 @@ const floor_scene = preload("res://Scenes/brush.tscn")
 #@export var max_hallway_length = 500
 @export var min_doorway_size : int = 7
 @export var min_surface_area : int = 1000
-var world_seed : int = 1124 
+@export var chance_to_connect_rooms = 0.9
+@export var world_seed : int = 1124 
 
 #NOTE: SETTINGS IDEAL FOR TESTING:
 # perimeter_width : int = 250
@@ -415,7 +416,7 @@ func make_world() -> void:
 	generate_walls()
 	get_neighbors_for_all_brushes()
 	#create_doorways_full()
-	create_doorways_isolated()
+	create_doorways_by_chance()
 	find_isolated_areas()
 	
 	var num_broken = 0
@@ -605,28 +606,14 @@ func set_brush_position(brush: Node3D, position: Vector3):
 func set_brush_scale(brush: Node3D, scale: Vector3i):
 	#print("Setting New Brush Scale: (%s %s %s)" % [scale.x, scale.y, scale.z])
 	brush.scale = scale
-
-func create_doorways_linear():
-	#check if room has doors already
-	#if not, create one
-	#then check other walls where rooms touch but have no connections
-	#50% chance of adding a door there
 	
-	pass
-	
-func create_doorways_isolated():
+func create_doorways_by_chance():
 	for brush in floor_brushes:
 		for neighbor in brush.neighbors:
-			if not neighbor["is_connected"] and randi() % 2 == 0:
+			if not neighbor["is_connected"] and (randi() % 100) / 100.0 < chance_to_connect_rooms:
 				create_doorway(brush, neighbor)
 	
 #random walking recursive backtracking perimeter contrained isolated pathfinder with overlap avoidance
-
-func create_doorways_full():
-	for brush in floor_brushes:
-		for neighbor in brush.neighbors:
-			if not neighbor["is_connected"]:
-				create_doorway(brush, neighbor)
 	
 func test_create_doorway():
 	var a = floor_scene.instantiate()
@@ -653,7 +640,7 @@ func test_create_doorway():
 	generate_ceilings()
 	generate_walls()
 	get_neighbors_for_all_brushes()
-	create_doorways_full()
+	create_doorways_by_chance()
 	
 func create_doorway(brush : Brush, neighbor : Dictionary):
 	var other_brush_neighbors = neighbor["neighbor"].neighbors
@@ -977,8 +964,8 @@ func find_isolated_areas() -> Array:
 	print("Brushes per area:")
 	var t = 0
 	for area in areas:
-		for b in area:
-			print(b.name)
+		#for b in area:
+			#print(b.name)
 		t += area.size()
 		print(area.size())
 	print("Number of brushes found: " + str(t))
@@ -1017,17 +1004,17 @@ func add_items_and_player(starter_area, player) -> void:
 		item.position.y = 1
 		item.position.z = rand_range(p.z + WALL_OFFSET, p.z + b.scale.z - WALL_OFFSET)
 	
-
-
 #Adds the noclip holes that allow players to warp isolated areas
 func add_connecting_noclip_holes():
 	#ensure hole doesnt spawn directly under player spawn
+	#if # rooms is above a certain amount, should we disqualify single rooms from being connected?
+		# lets write the full algorithm first and decide from there
 	pass
 	
 func add_exit(wall_brushes):
 	const EXIT_SIZE = 4
 	for wall in wall_brushes:
-		var pos = get_brush_position(pos)
+		var pos = get_brush_position(wall)
 		if wall.scale.x > min_doorway_size: 
 			var exit_start = rand_range(pos.x, pos.x + wall.scale.x - EXIT_SIZE)
 			var x
@@ -1042,7 +1029,8 @@ func rand_range(n_min, n_max):
 		return n_min
 	return (randi() % (int(n_max) - int(n_min))) + int(n_min)
 
-
+func update_parameters():
+	pass
 
 #IDEAS:
 # If the world has more than one isolated area, spawn a note explaining how "I fell through the floor and now I'm in a place that seems... completely separated from where I was." Make sure it spawns in the same area as the player.
